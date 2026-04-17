@@ -6,19 +6,34 @@ import plotly.graph_objects as go
 from collections import Counter
 from custom_flat import custom_flat
 from misc_func import normaliza_lista_texto
-from table_format import export_xlsx
+from table_format import export_to_download
 
+def similaridade(lista1: list[str], lista2: list[str]) -> float:
+    """
+    Calcula a similaridade entre duas listas de palavras.
+    Retorna: len(interseção) / len(lista1)
+    """
+    set1 = set(lista1)
+    set2 = set(lista2)
+    
+    comuns = set1 & set2
+    
+    if not set1:
+        return 0.0
+    
+    return len(comuns) / len(set1)
 
-def costumizar_slider():
-    return components.html("""
-    <script>
-            const inputs = window.parent.document.querySelectorAll('input');
-            console.log("total de inputs:", inputs.length);
-            inputs.forEach(el => {
-                console.log("tag:", el.tagName, "type:", el.type, "aria-label:", el.getAttribute("aria-label"));
-            });
-    </script>
-""", height=0)
+def tratar_data_frame(df:pd.DataFrame,selecionadas:set)->pd.DataFrame:
+    """adiciona a tabela de pesquisa de vagas as palavras-chave selecionadas e uma coluna de adesão às vagas"""
+    list_keywords = sorted(list(selecionadas))
+    df["palavras_selecionadas"] = df["palavras-chave_res"].map(lambda a: "; ".join(list_keywords))
+    df["adesao_a_vaga"] = df["palavras-chave_res"].map(lambda kw: similaridade(kw, list_keywords))
+    df["palavras-chave_res"] =df["palavras-chave_res"].map(lambda kw: "; ".join(kw))
+    df.drop(columns="palavras-chave", inplace=True)
+    df.rename(columns={"palavras-chave_res":"palavras-chave"}, inplace=True)
+    return df
+def exportar_arquivo(df)->bytes:
+    return export_to_download(df,"analise_vagas_adesao",sheet_name="analise_vagas")
 
 def criar_nuvem_palavras(contagem_palavras:Counter, densidade)-> go.Figure:
     contagem_palavras = {c:contagem_palavras[c] for c in contagem_palavras if contagem_palavras[c]>=(densidade -1)}
@@ -52,11 +67,13 @@ def criar_nuvem_palavras(contagem_palavras:Counter, densidade)-> go.Figure:
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         plot_bgcolor="white",
-        margin=dict(l=40, r=40, t=50, b=40),
+        margin=dict(l=20, r=20, t=30, b=20),
         title="Nuvem de Palavras",
     )
 
     return fig_frequencias
+
+#estilo global:
 
 #Widget de upload de dados
 file_upload = st.file_uploader("Faça upload dos dados", type=['xlsx'])
@@ -81,8 +98,6 @@ if file_upload:
     with tab_frequencia:
         #densidade = st.slider(label="densidade",min_value=min(frequencias), max_value=max(frequencias))
         densidade = st.slider(label="densidade",min_value=min(frequencias), max_value=max(frequencias),key="slider_densidade")
-        costumizar_slider()
-        
         fig_frequencias:go.Figure = criar_nuvem_palavras(contagem_palavras, densidade)
         st.plotly_chart(fig_frequencias)
         pass
@@ -94,3 +109,17 @@ if file_upload:
         with cols[i % 3]:
             if st.checkbox(palavra, key=f"{i}_{palavra}"):
                 selecionadas.add(palavra)
+    exp3 = st.expander("salvar seleção de palavras-chaves")
+    tab_selecionadas, tab_adesao = exp3.tabs(["palavras selecionadas","adesão a vaga"])
+    with tab_selecionadas:
+        st.text_area(label="palavras-chave selecionadas",value="; ".join(selecionadas))
+    with tab_adesao:
+        btn_df_adesao = st.button(label="criar tabela de adesão")
+        if btn_df_adesao:
+            df_res = tratar_data_frame(df, selecionadas)
+            st.dataframe(df_res)
+            st.download_button(label="baixar arquivo com palavras selecionadas",
+                            data=exportar_arquivo(df_res),
+                            file_name="analise_vagas_adesao.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )

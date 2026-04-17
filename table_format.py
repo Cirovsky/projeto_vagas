@@ -1,6 +1,6 @@
 import pandas as pd
 from xlsxwriter.worksheet import Worksheet
-from datetime import datetime
+from io import BytesIO
 
 def numbers_letters_conversion(len_cols:int)->str:
     '''This function convert a number, from 1 at 16384 in alphabetical code with max 3 letters, from A at XFD'''
@@ -44,3 +44,12 @@ def export_xlsx (df:pd.DataFrame, output_file:str, sheet_name:str, table_name:st
         df.to_excel(excel_writer=tabela, sheet_name=sheet_name, index=False)
         table_format(tabela, sheet_name, df, table_name)
         print(f"table created at {output_file}.xlsx.")
+
+def export_to_download (df:pd.DataFrame, output_file:str, sheet_name:str, table_name:str|None = None) -> bytes:
+    '''return an file xlsx document with a formatted tablhe'''
+    buffer = BytesIO()
+    if table_name is None:
+        table_name = sheet_name
+    with pd.ExcelWriter(path=buffer, engine="openpyxl") as tabela:
+        df.to_excel(excel_writer=tabela, sheet_name=sheet_name, index=False)
+    return buffer.getvalue()
