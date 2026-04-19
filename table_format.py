@@ -45,11 +45,9 @@ def export_xlsx (df:pd.DataFrame, output_file:str, sheet_name:str, table_name:st
         table_format(tabela, sheet_name, df, table_name)
         print(f"table created at {output_file}.xlsx.")
 
-def export_to_download (df:pd.DataFrame, output_file:str, sheet_name:str, table_name:str|None = None) -> bytes:
-    '''return an file xlsx document with a formatted tablhe'''
+def export_to_download (df:pd.DataFrame, sheet_name:str, table_name:str = "tabela") -> bytes:
+    '''return an file xlsx document with a formatted table'''
     buffer = BytesIO()
-    if table_name is None:
-        table_name = sheet_name
     with pd.ExcelWriter(path=buffer, engine="openpyxl") as tabela:
         df.to_excel(excel_writer=tabela, sheet_name=sheet_name, index=False)
     return buffer.getvalue()

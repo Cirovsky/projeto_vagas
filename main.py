@@ -2,8 +2,9 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 from collections import Counter
+from wordcloud import WordCloud
 from custom_flat import custom_flat
 from misc_func import normaliza_lista_texto
 from table_format import export_to_download
@@ -35,51 +36,44 @@ def tratar_data_frame(df:pd.DataFrame,selecionadas:set)->pd.DataFrame:
 def exportar_arquivo(df)->bytes:
     return export_to_download(df,"analise_vagas_adesao",sheet_name="analise_vagas")
 
-def criar_nuvem_palavras(contagem_palavras:Counter, densidade)-> go.Figure:
-    contagem_palavras = {c:contagem_palavras[c] for c in contagem_palavras if contagem_palavras[c]>=(densidade -1)}
-    palavras_chave = list(contagem_palavras.keys())
-    frequencias = list(contagem_palavras.values())
-    min_f, max_f = min(frequencias), max(frequencias)
-    #normalizar tamanho da fonte (entre 9 e 40)
-    #tamanhos:list = [ 9+(f-min_f)/(max_f-min_f +1)*41 for f in frequencias]
-    tamanhos:list = [ f*(max_f*2) for f in frequencias]
-    #posições aleatórias:
-
-    np.random.seed(42)
-    x = np.random.uniform(1, 9, len(palavras_chave))
-    y = np.random.uniform(0.5, 5, len(palavras_chave))   
-
-    #figura plotly
-    fig_frequencias:go.Figure = go.Figure()
-    fig_frequencias.add_trace(go.Scatter(
-        x= x,
-        y= y,
-        mode="text",
-        text=palavras_chave,
-        textfont=dict(size=tamanhos, color=[f"hsl({i * 37 % 360}, 70%, 45%)" for i in range(len(palavras_chave))]),
-        customdata=frequencias,
-        hovertemplate="<b>%{text}</b><br>Frequência: %{customdata}<extra></extra>"
-        )
-    )
-
-
-    fig_frequencias.update_layout(
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        plot_bgcolor="white",
-        margin=dict(l=20, r=20, t=30, b=20),
-        title="Nuvem de Palavras",
-    )
-
-    return fig_frequencias
-
+@st.cache_data
+def criar_nuvem_palavras(contagem_palavras:Counter):
+    nuvem = WordCloud(width=800, height=400, background_color="black", mode="RGBA").generate_from_frequencies(contagem_palavras)
+    fig, ax = plt.subplots()
+    fig.patch.set_alpha(0)   # fundo da figura transparente
+    fig.set_dpi(200)
+    ax.imshow(nuvem, interpolation="bilinear")
+    ax.axis("off")
+    st.pyplot(fig)
 #estilo global:
 
-#Widget de upload de dados
-file_upload = st.file_uploader("Faça upload dos dados", type=['xlsx'])
+st.markdown(
+    f"""
+#### Bem vindo ao seu dashboard para analisar vagas de emprego!
+para utilizar, você deve criar uma planilha do excel no seguinte formato:
+|nome_cargo|nome_especifico_cargo|senioridade|empresa|ramo|tamanho|palavras-chave|
+|----|-----------|-----------|-------|----|-------|--------------|
+|nome genérico do cargo|nome do cargo na vaga específica|jr,pleno ou senior|nome empresa|ramo da empresa| numero de funcionario(exemplo 50-100)|descrição das funções do cargo|
 
-#verifica se foi feito upload
+    """
+)
+
+col_up, col_ex = st.columns(2)
+#Widget de upload de dados
+
+with col_up:
+    file_upload = st.file_uploader("Faça upload dos dados", type=['xlsx'])
+with col_ex:
+    tabela_exemplo:pd.DataFrame = pd.read_excel("tabela_exemplo/estudo_vagas_analista_dados.xlsx")
+    st.markdown("se precisar ou quiser testar, baixe essa planilha e dê upload no botão ao lado")
+    st.download_button(label="baixar planilha de exemplo",
+                            data=export_to_download(tabela_exemplo,"vagas"),
+                            file_name="vagas_estudadas.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+
 if file_upload:
+    
     #leitura dos dados
     df:pd.DataFrame = pd.read_excel(file_upload)
     column_config = {"palavras-chave_res":st.column_config.ListColumn("palavra-chave_res", width="large")}
@@ -90,17 +84,13 @@ if file_upload:
     palavras_chave = list(contagem_palavras.keys())
     frequencias = list(contagem_palavras.values())
 
-
     exp1 = st.expander("vagas referência")
     tab_tabela, tab_frequencia = exp1.tabs(["tabela", "frequencia"])
     with tab_tabela:
         st.dataframe(df)
     with tab_frequencia:
-        #densidade = st.slider(label="densidade",min_value=min(frequencias), max_value=max(frequencias))
-        densidade = st.slider(label="densidade",min_value=min(frequencias), max_value=max(frequencias),key="slider_densidade")
-        fig_frequencias:go.Figure = criar_nuvem_palavras(contagem_palavras, densidade)
-        st.plotly_chart(fig_frequencias)
-        pass
+        #densidade = st.slider(label="densidade",min_value=min(frequencias), max_value=max(frequencias),key="slider_densidade")
+        criar_nuvem_palavras(contagem_palavras)
     exp2 = st.expander("seleção de palavras-chave")
     exp2.text("clique nas palavras-chave abaixo para criar um modelo de palavras chave a serem adicionadas no seu currículo")
     selecionadas = set()
