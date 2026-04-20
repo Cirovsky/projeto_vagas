@@ -28,13 +28,11 @@ def tratar_data_frame(df:pd.DataFrame,selecionadas:set)->pd.DataFrame:
     """adiciona a tabela de pesquisa de vagas as palavras-chave selecionadas e uma coluna de adesão às vagas"""
     list_keywords = sorted(list(selecionadas))
     df["palavras_selecionadas"] = df["palavras-chave_res"].map(lambda a: "; ".join(list_keywords))
-    df["adesao_a_vaga"] = df["palavras-chave_res"].map(lambda kw: similaridade(kw, list_keywords))
+    df["aderencia_vaga"] = df["palavras-chave_res"].map(lambda kw: similaridade(kw, list_keywords))
     df["palavras-chave_res"] =df["palavras-chave_res"].map(lambda kw: "; ".join(kw))
     df.drop(columns="palavras-chave", inplace=True)
     df.rename(columns={"palavras-chave_res":"palavras-chave"}, inplace=True)
     return df
-def exportar_arquivo(df)->bytes:
-    return export_to_download(df,"analise_vagas_adesao",sheet_name="analise_vagas")
 
 @st.cache_data
 def criar_nuvem_palavras(contagem_palavras:Counter):
@@ -99,16 +97,19 @@ if file_upload:
             if st.checkbox(palavra, key=f"{i}_{palavra}"):
                 selecionadas.add(palavra)
     exp3 = st.expander("salvar seleção de palavras-chaves")
-    tab_selecionadas, tab_adesao = exp3.tabs(["palavras selecionadas","aderência a vaga"])
+    tab_selecionadas, tab_aderencia, tab_aderencia_grafico = exp3.tabs(["palavras selecionadas","aderência a vaga", "gráfico de aderência"])
     with tab_selecionadas:
         st.text_area(label="palavras-chave selecionadas",value="; ".join(selecionadas))
-    with tab_adesao:
+    with tab_aderencia:
         btn_df_adesao = st.button(label="criar tabela de aderencia")
         if btn_df_adesao:
             df_res = tratar_data_frame(df, selecionadas)
             st.dataframe(df_res)
             st.download_button(label="baixar arquivo com palavras selecionadas",
-                            data=exportar_arquivo(df_res),
+                            data=export_to_download(df_res,"analise_vagas"),
                             file_name="analise_vagas_aderencia.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
+    with tab_aderencia_grafico:
+        if btn_df_adesao:
+            st.bar_chart(df_res,x = "empresa", y="aderencia_vaga")
