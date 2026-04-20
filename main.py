@@ -47,16 +47,18 @@ def criar_nuvem_palavras(contagem_palavras:Counter):
     st.pyplot(fig)
 #estilo global:
 
-st.markdown(
+tabela_md = st.markdown(
     f"""
 #### Bem vindo ao seu dashboard para analisar vagas de emprego!
 para utilizar, você deve criar uma planilha do excel no seguinte formato:
-|nome_cargo|nome_especifico_cargo|senioridade|empresa|ramo|tamanho|palavras-chave|
+|nome do cargo|nome da vaga|senioridade|empresa|ramo|tamanho|palavras-chave|
 |----|-----------|-----------|-------|----|-------|--------------|
-|nome genérico do cargo|nome do cargo na vaga específica|jr,pleno ou senior|nome empresa|ramo da empresa| numero de funcionario(exemplo 50-100)|descrição das funções do cargo|
+|nome genérico do cargo|nome do cargo na vaga específica|jr,pleno ou senior|nome empresa|ramo da empresa| numero de funcionario ( exemplo 50-100)|descrição das funções do cargo|
 
     """
 )
+
+
 
 col_up, col_ex = st.columns(2)
 #Widget de upload de dados
@@ -66,11 +68,8 @@ with col_up:
 with col_ex:
     tabela_exemplo:pd.DataFrame = pd.read_excel("tabela_exemplo/estudo_vagas_analista_dados.xlsx")
     st.markdown("se precisar ou quiser testar, baixe essa planilha e dê upload no botão ao lado")
-    st.download_button(label="baixar planilha de exemplo",
-                            data=export_to_download(tabela_exemplo,"vagas"),
-                            file_name="vagas_estudadas.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                            )
+    gd_file_ID:str = "1pblemM-HExZQzLyeJup4fY9cKWS_ll0P"
+    st.link_button(label="baixar",url=f"https://docs.google.com/uc?export=download&id={gd_file_ID}")
 
 if file_upload:
     
@@ -95,21 +94,21 @@ if file_upload:
     exp2.text("clique nas palavras-chave abaixo para criar um modelo de palavras chave a serem adicionadas no seu currículo")
     selecionadas = set()
     cols = exp2.columns(3)
-    for i, palavra in enumerate(sorted(palavras_chave)):
+    for i, palavra in enumerate(sorted(palavras_chave, key=str.lower)):
         with cols[i % 3]:
             if st.checkbox(palavra, key=f"{i}_{palavra}"):
                 selecionadas.add(palavra)
     exp3 = st.expander("salvar seleção de palavras-chaves")
-    tab_selecionadas, tab_adesao = exp3.tabs(["palavras selecionadas","adesão a vaga"])
+    tab_selecionadas, tab_adesao = exp3.tabs(["palavras selecionadas","aderência a vaga"])
     with tab_selecionadas:
         st.text_area(label="palavras-chave selecionadas",value="; ".join(selecionadas))
     with tab_adesao:
-        btn_df_adesao = st.button(label="criar tabela de adesão")
+        btn_df_adesao = st.button(label="criar tabela de aderencia")
         if btn_df_adesao:
             df_res = tratar_data_frame(df, selecionadas)
             st.dataframe(df_res)
             st.download_button(label="baixar arquivo com palavras selecionadas",
                             data=exportar_arquivo(df_res),
-                            file_name="analise_vagas_adesao.xlsx",
+                            file_name="analise_vagas_aderencia.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
